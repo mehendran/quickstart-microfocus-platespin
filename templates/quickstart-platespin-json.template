@@ -1,6 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "This template creates the Amazon EC2 instance into an existing VPC and related resources for the PlateSpin Migrate Quick Start. ***NOTE*** You must subscribe to the PlateSpin Migrate AMI from the AWS Marketplace before you launch this template. See the deployment guide at http://aws.amazon.com/quickstart for details. This template creates Amazon EC2 instances and related resources. You will be billed for the AWS resources used if you create a stack from this template.",
+    "Description": "This template creates the Amazon EC2 instance into an existing VPC and related resources for the PlateSpin Migrate Quick Start. See the deployment guide at http://aws.amazon.com/quickstart for details. ***NOTE*** This template creates Amazon EC2 instances and related resources. You will be billed for the AWS resources used if you create a stack from this template.",
     "Metadata": {
         "AWS::CloudFormation::Interface": {
             "ParameterGroups": [
@@ -10,8 +10,7 @@
                     },
                     "Parameters": [
                         "VPCID",
-                        "PublicSubnetID",
-                        "RemoteAccessCIDR"
+                        "PublicSubnetID"
                     ]
                 },
                 {
@@ -23,7 +22,8 @@
                         "WorkloadInstanceType",
                         "AutoEIP",
                         "HostName",
-                        "SNSTopicMailID"
+                        "RemoteAccessCIDR",                        
+						"SNSTopicMailID"
                     ]
                 }
             ],
@@ -136,9 +136,6 @@
 				}
             },
 			 "Metadata": {
-					"AWS::CloudFormation::Designer": {
-						"id": "25b9b2ea-a363-47fc-8fec-fb750efa994b"
-					},
 					"AWS::CloudFormation::Init": {
 					"configSets": {
 						"config": [
@@ -257,8 +254,7 @@
                     }
                 ]
             }
-        },
-		
+        },		
 		"MigrateInstanceProfile" : {
 			  "Type" : "AWS::IAM::InstanceProfile",
 			  "Properties" : {
