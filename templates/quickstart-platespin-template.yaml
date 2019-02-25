@@ -121,7 +121,7 @@ Parameters:
     Type: String
   MigrateAdminConfirmPassword:
     Description: >-
-      Confirm the password for the PlateSpin Migrate server admin account. The password must be of 8-32 length containing letters, numbers and symbols.
+      The password confirmation for the Migrate server admin account. 
     Type: String
     MinLength: '8'
     MaxLength: '32'
@@ -130,7 +130,7 @@ Parameters:
     NoEcho: 'true'
   MigrateAdminPassword:
     Description: >-
-      The password for the PlateSpin Migrate server admin account. The password must be of 8-32 length containing letters, numbers and symbols.
+      The password for the Migrate server admin account. It can contain 8 to 32 alphanumeric characters and symbols.
     Type: String
     MinLength: '8'
     MaxLength: '32'
@@ -138,17 +138,17 @@ Parameters:
       (?=^.{6,255}$)((?=.*\d)(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[^A-Za-z0-9])(?=.*[a-z])|(?=.*[^A-Za-z0-9])(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9]))^.*
     NoEcho: 'true'
   MigrateAdminUsername:
-    Description: The username for the PlateSpin Migrate server admin account. The name must be of 5-25 length containing only alphanumeric characters.
+    Description: The username for the PlateSpin Migrate server admin account. This name can contain 5 to 25 alphanumeric characters.
     Type: String
-    Default: migrateadmin
+    Default: psadmin
     MinLength: '5'
     MaxLength: '25'
     AllowedPattern: '[a-zA-Z0-9]*'
   MigrateServerHostname:
     Description: >-
-      The hostname for your PlateSpin Migrate server (up to 15 characters). This name can contain alphanumeric characters, and hyphens, but should start with a letter and cannot end with a hyphen.
+      The hostname (up to 15 characters) for your PlateSpin Migrate server. This name can contain alphanumeric characters and hyphens. It should start with a letter and should not end with a hyphen.
     Type: String
-    Default: PSMigrate
+    Default: psmigrate
     MaxLength: '15'
     AllowedPattern: '^[a-zA-Z]|([a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9]$)'
     ConstraintDescription: >-
@@ -168,7 +168,7 @@ Parameters:
       ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
     Description: >-
-      The CIDR range from which the PlateSpin Migrate server Web UI and services can be accessed through HTTP/S and the data transfer port.
+      The CIDR range from which the PlateSpin Migrate server Web UI and services can be accessed through HTTPS and data transfer ports. 
     Type: String
   QSS3BucketName:
     AllowedPattern: '^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$'
@@ -242,15 +242,15 @@ Conditions:
 Mappings:
   AWSAMIRegionMap:
     AMI:
-      PSM201811AMI: PlateSpin 2018.11 T3
+      PSM201811AMI: PSM 2018.11 AMI S1
     ap-northeast-1:
       PSM201811AMI: ami-
     ap-northeast-2:
       PSM201811AMI: ami-
     ap-south-1:
-      PSM201811AMI: ami-0e8d0f65b2b3ef667
-    ap-southeast-1:
-      PSM201811AMI: ami-
+      PSM201811AMI: ami-08153b525ea4009df
+    ap-southeast-1: 
+      PSM201811AMI: ami-09afbf3002846433e
     ap-southeast-2:
       PSM201811AMI: ami-
     ca-central-1:
@@ -274,7 +274,7 @@ Mappings:
     us-west-1:
       PSM201811AMI: ami-
     us-west-2:
-      PSM201811AMI: ami-06937399f4d21e7a9
+      PSM201811AMI: ami-0a6997f4e66055d6c
 Resources:
   ServerSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -467,8 +467,32 @@ Resources:
       Path: /
       Roles:
         - !Ref MigrateRole
+  PublicStaticIP:
+    Type: 'AWS::EC2::EIP'
+    Condition: AutoAssignEIP
+    Properties:
+      Domain: vpc
+  MigrateServerNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Condition: AutoAssignEIP
+    Properties:
+      SubnetId: !Ref SubnetID
+      Description: Network Interface for Migrate Server
+      GroupSet: 
+        - !Ref ServerSecurityGroup
+      SourceDestCheck: true
+  AssociateMigrateServerNetworkInterface:
+    Type: AWS::EC2::EIPAssociation
+    Condition: AutoAssignEIP
+    Properties:
+      AllocationId: !GetAtt PublicStaticIP.AllocationId
+      NetworkInterfaceId: !Ref MigrateServerNetworkInterface
   MigrateServerInstance:
     Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: PT60M
     Metadata:
       'AWS::CloudFormation::Authentication':
         S3AccessCreds:
@@ -479,52 +503,24 @@ Resources:
       'AWS::CloudFormation::Init':
         configSets:
           config:
+            - installTools
+            - enableCWLogs
             - prepare
-            - !If
-              - AutoAssignEIP
-              - noOperation
-              - updateAltAddress
             - setup
             - finalize
-        noOperation:
-          commands:
-            1-no-operation:
-              command: echo "No-Operation" > nul
-              waitAfterCompletion: 0
-        prepare:
+        installTools:
           files:
-            'C:\cfn\scripts\Unzip-Archive.ps1':
-              source: !Sub
-                - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Unzip-Archive.ps1
-                - QSS3Region: !If
-                    - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
-            'C:\cfn\modules\AWSQuickStart.zip':
-              source: !Sub
-                - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/modules/AWSQuickStart.zip
-                - QSS3Region: !If
-                    - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
-            'C:\cfn\scripts\Rename-Computer.ps1':
-              source: !Sub
-                - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Rename-Computer.ps1
-                - QSS3Region: !If
-                    - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
-            'C:\cfn\scripts\Create-MigrateAdmin.ps1':
-              source: !Sub
-                - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}scripts/Create-MigrateAdmin.ps1
-                - QSS3Region: !If
-                    - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
+            'C:\cfn\assets\GoogleChromeStandaloneEnterprise64.msi':
+              source: >-
+                https://dl.google.com/edgedl/chrome/install/GoogleChromeStandaloneEnterprise64.msi
+          commands:
+            1-install-chrome:
+              command: >-
+                start /wait c:\cfn\assets\GoogleChromeStandaloneEnterprise64.msi
+                /quiet /passive
+              waitAfterCompletion: '0'
+        enableCWLogs:
+          files:
             'C:\Program Files\Amazon\SSM\Plugins\awsCloudWatch\AWS.EC2.Windows.CloudWatch.json':
               content: !Sub |
                 {
@@ -671,7 +667,56 @@ Resources:
                     }
                   }
                 }
-
+          commands:
+            1-enable-ssm-agent:
+              command: powershell.exe -Command "Set-Service -Name AmazonSSMAgent -StartupType Automatic"
+              waitAfterCompletion: '0'
+            2-restart-ssm-agent:
+              command: powershell.exe -Command "Restart-Service AmazonSSMAgent"
+              ignoreErrors: true
+              waitAfterCompletion: '0'
+        prepare:
+          files:
+            'C:\cfn\scripts\Unzip-Archive.ps1':
+              source: !Sub
+                - >-
+                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Unzip-Archive.ps1
+                - QSS3Region: !If
+                    - GovCloudCondition
+                    - s3-us-gov-west-1
+                    - s3
+            'C:\cfn\modules\AWSQuickStart.zip':
+              source: !Sub
+                - >-
+                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/modules/AWSQuickStart.zip
+                - QSS3Region: !If
+                    - GovCloudCondition
+                    - s3-us-gov-west-1
+                    - s3
+            'C:\cfn\scripts\Rename-Computer.ps1':
+              source: !Sub
+                - >-
+                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Rename-Computer.ps1
+                - QSS3Region: !If
+                    - GovCloudCondition
+                    - s3-us-gov-west-1
+                    - s3
+            'C:\cfn\scripts\Create-MigrateAdmin.ps1':
+              source: !Sub
+                - >-
+                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}scripts/Create-MigrateAdmin.ps1
+                - QSS3Region: !If
+                    - GovCloudCondition
+                    - s3-us-gov-west-1
+                    - s3
+            'C:\cfn\scripts\Provision.ps1':
+              source: !Sub
+                - >-
+                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}scripts/Provision.ps1
+                - QSS3Region: !If
+                    - GovCloudCondition
+                    - s3-us-gov-west-1
+                    - s3
             'C:\cfn\cfn-hup.conf':
               content: !Sub |
                 [main]
@@ -698,8 +743,9 @@ Resources:
               command:
                 powershell.exe
                   -Command "Set-ExecutionPolicy RemoteSigned"
-                    -Force"
-              waitAfterCompletion: 0
+                  -Force
+              ignoreErrors: true
+              waitAfterCompletion: '0'
             2-unpack-quickstart-module:
               command:
                 powershell.exe
@@ -727,19 +773,17 @@ Resources:
             2-rename-computer:
               command: !Sub
                 powershell.exe
-                  -Command "C:\cfn\scripts\Rename-Computer.ps1
+                  -Command C:\cfn\scripts\Rename-Computer.ps1
                     -Restart -NewName '${MigrateServerHostname}'
               waitAfterCompletion: forever
-        updateAltAddress:
-          commands:
-            1-update-alt-address:
-              command:
-                C:\Windows\OEM\ForgeApplianceConfigurator\ForgeApplianceConfigurator.exe
-                  /skip_network_config
-                  /hosting_cloud="aws"
-                  /alternate_address=""
-                  /log=C:\Windows\OEM\Provision.log
-              ignoreErrors: true
+            3-provision-migrate-server:
+              command: !Sub
+                - powershell.exe
+                   -Command C:\cfn\scripts\Provision.ps1 ${UsePublicIPFlag}
+                - UsePublicIPFlag: !If
+                  - AutoAssignEIP
+                  - '-UsePublicIP'
+                  - ''
               waitAfterCompletion: 0
         finalize:
           commands:
@@ -754,15 +798,24 @@ Resources:
         - PSM201811AMI
       KeyName: !Ref KeyPairName
       IamInstanceProfile: !Ref MigrateInstanceProfile
-      NetworkInterfaces:
-        - AssociatePublicIpAddress: !If
-            - AutoAssignEIP
-            - true
-            - false
-          DeviceIndex: '0'
-          SubnetId: !Ref SubnetID
-          GroupSet:
-            - !Ref ServerSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: '/dev/sda1'
+          Ebs:
+            VolumeSize: 70
+            DeleteOnTermination: true
+      NetworkInterfaces: !If
+        - AutoAssignEIP
+        - - NetworkInterfaceId: !Ref MigrateServerNetworkInterface
+            DeviceIndex: 0
+        - - AssociatePublicIpAddress: !If
+              - AutoAssignEIP
+              - true
+              - false
+            DeviceIndex: 0
+            SubnetId: !Ref SubnetID
+            GroupSet:
+              - !Ref ServerSecurityGroup
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-${MigrateServerHostname}
@@ -784,16 +837,6 @@ Resources:
               rem Run  cfn-init helper to process AWS::CloudFormation::Init directives
               cfn-init.exe -v -c config -s ${AWS::StackName} --resource MigrateServerInstance --region ${AWS::Region}
             </script>
-    CreationPolicy:
-      ResourceSignal:
-        Count: 1
-        Timeout: PT60M
-  MigrateServerElasticIP:
-    Type: 'AWS::EC2::EIP'
-    Condition: AutoAssignEIP
-    Properties:
-      Domain: vpc
-      InstanceId: !Ref MigrateServerInstance
   MigrateServerLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
