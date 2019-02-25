@@ -4,6 +4,10 @@
         "ParameterValue": "Yes"
     },
     {
+        "ParameterKey": "AssignElasticIP",
+        "ParameterValue": "Yes"
+    },
+    {
         "ParameterKey": "AvailabilityZones",
         "ParameterValue": "$[taskcat_genaz_2]"
     },
@@ -19,7 +23,7 @@
         "ParameterKey": "ManagementAccessCIDR",
         "ParameterValue": "0.0.0.0/0"
     },
-	{
+    {
         "ParameterKey": "MigrateAdminConfirmPassword",
         "ParameterValue": "password@1"
     },
@@ -29,7 +33,7 @@
     },
     {
         "ParameterKey": "MigrateAdminUsername",
-        "ParameterValue": "migrateadmin"
+        "ParameterValue": "psadmin"
     },
     {
         "ParameterKey": "MigrateServerHostname",
@@ -47,7 +51,7 @@
         "ParameterKey": "PrivateSubnet2CIDR",
         "ParameterValue": "10.0.32.0/19"
     },
-	{
+    {
         "ParameterKey": "PublicSubnet1CIDR",
         "ParameterValue": "10.0.128.0/20"
     },
@@ -63,7 +67,7 @@
         "ParameterKey": "QSS3KeyPrefix",
         "ParameterValue": "quickstart-microfocus-platespin/"
     },
-	{
+    {
         "ParameterKey": "ReplicationAccessCIDR",
         "ParameterValue": "0.0.0.0/0"
     },
@@ -71,11 +75,11 @@
         "ParameterKey": "SNSTopicMailID",
         "ParameterValue": "operator@example.com"
     },
-	{
+    {
         "ParameterKey": "TargetWorkloadsInterconnectCIDR",
         "ParameterValue": "0.0.0.0/0"
     },
-	{
+    {
         "ParameterKey": "VPCCIDR",
         "ParameterValue": "10.0.0.0/16"
     }
