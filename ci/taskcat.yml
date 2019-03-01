@@ -22,6 +22,6 @@ global:
   reporting: true
 
 tests:
-  json-master:
+  platespin-master:
     parameter_input: master-parameters.json
     template_file: quickstart-platespin-master-template.yaml
