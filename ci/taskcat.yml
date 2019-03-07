@@ -7,7 +7,7 @@ global:
     - ap-northeast-2  # Asia Pacific (Seoul)
     - ap-south-1      # Asia Pacific (Mumbai)
     - ap-southeast-1  # Asia Pacific (Singapore)
-    - ap-southeast-2  # Asia Pacific (Sydney)
+   # - ap-southeast-2  # Asia Pacific (Sydney) --> until m5 instances are available
     - ca-central-1    # Canada (Central)
     - eu-central-1    # EU (Frankfurt)
     - eu-north-1      # EU (Stockholm)
