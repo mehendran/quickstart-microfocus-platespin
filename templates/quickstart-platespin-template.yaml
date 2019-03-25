@@ -31,16 +31,16 @@ Metadata:
         Parameters:
           - LicenseAgreement
       - Label:
-          default: Network configuration
+          default: VPC Network configuration
         Parameters:
           - VPCID
           - SubnetID
       - Label:
           default: PlateSpin Migrate server configuration
         Parameters:
+          - KeyPairName
           - MigrateServerInstanceType
           - AssignElasticIP
-          - KeyPairName
           - ReplicationAccessCIDR
           - ManagementAccessCIDR
           - TargetWorkloadsInterconnectCIDR
