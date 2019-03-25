@@ -30,20 +30,20 @@ Metadata:
         Parameters:
           - LicenseAgreement
       - Label:
-          default: Network configuration
+          default: VPC Network configuration
         Parameters:
+          - AvailabilityZones
           - VPCCIDR
-          - PublicSubnet1CIDR
-          - PublicSubnet2CIDR
           - PrivateSubnet1CIDR
           - PrivateSubnet2CIDR
-          - AvailabilityZones
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
       - Label:
           default: PlateSpin Migrate server configuration
         Parameters:
+          - KeyPairName
           - MigrateServerInstanceType
           - AssignElasticIP
-          - KeyPairName
           - ReplicationAccessCIDR
           - ManagementAccessCIDR
           - TargetWorkloadsInterconnectCIDR
