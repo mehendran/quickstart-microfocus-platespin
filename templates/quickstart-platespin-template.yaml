@@ -27,7 +27,7 @@ Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
       - Label:
-          default: Software License Agreement
+          default: License agreement
         Parameters:
           - LicenseAgreement
       - Label:
