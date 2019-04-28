@@ -232,9 +232,20 @@ Conditions:
   AutoAssignEIP: !Equals
     - !Ref AssignElasticIP
     - 'Yes'
-  GovCloudCondition: !Equals
-    - !Ref 'AWS::Region'
-    - us-gov-west-1
+  GovCloudCondition: !Or
+    - !Equals
+      - !Ref 'AWS::Region'
+      - us-gov-west-1
+    - !Equals
+      - !Ref 'AWS::Region'
+      - us-gov-east-1
+  ChinaCloudCondition: !Or
+    - !Equals
+      - !Ref 'AWS::Region'
+      - cn-north-1
+    - !Equals
+      - !Ref 'AWS::Region'
+      - cn-northwest-1
   HaveSNSTopicMailID: !Not
     - !Equals
       - !Ref SNSTopicMailID
@@ -275,6 +286,10 @@ Mappings:
       PSM201811AMI: ami-095db824055999de8
     us-west-2:
       PSM201811AMI: ami-04a42125a3d85b0d9
+    us-gov-west-1:
+      PSM201811AMI: ami-83186ce2
+    us-gov-east-1:
+      PSM201811AMI: ami-099a2ee71f744fe5a
 Resources:
   ManagementSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -388,13 +403,13 @@ Resources:
               - 'ec2:StopInstances'
               - 'kms:CreateGrant'
             Resource:
-              - 'arn:aws:kms:*:*:key/*'
-              - 'arn:aws:ec2:*:*:subnet/*'
-              - 'arn:aws:ec2:*:*:instance/*'
-              - 'arn:aws:ec2:*:*:volume/*'
-              - 'arn:aws:ec2:*:*:security-group/*'
-              - 'arn:aws:ec2:*:*:network-interface/*'
-              - 'arn:aws:ec2:*::image/*'
+              - !Sub 'arn:${AWS::Partition}:kms:*:*:key/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:subnet/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:instance/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:volume/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:security-group/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:network-interface/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*::image/*'
           - Sid: VisualEditor1
             Effect: Allow
             Action:
@@ -403,8 +418,11 @@ Resources:
               - 'ec2:DeleteSnapshot'
               - 'ec2:DescribeInstances'
               - 'ec2:DescribeRegions'
+              - 'ec2:DescribeReservedInstancesOfferings'
               - 'ec2:CreateImage'
+              - 'iam:ListRoles'
               - 'ec2:DescribeSnapshots'
+              - 'ec2:AssignPrivateIpAddresses'
               - 'ec2:DescribePlacementGroups'
               - 'ec2:DescribeSecurityGroups'
               - 'pricing:GetProducts'
@@ -426,29 +444,29 @@ Resources:
             Action:
               - 'ec2:DeleteVolume'
               - 'ec2:CreateVolume'
-            Resource: 'arn:aws:ec2:*:*:volume/*'
+            Resource: !Sub 'arn:${AWS::Partition}:ec2:*:*:volume/*'
           - Sid: VisualEditor3
             Effect: Allow
             Action:
               - 'ec2:DetachVolume'
               - 'ec2:AttachVolume'
             Resource:
-              - 'arn:aws:ec2:*:*:instance/*'
-              - 'arn:aws:ec2:*:*:volume/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:instance/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:volume/*'
           - Sid: VisualEditor4
             Effect: Allow
             Action: 'ec2:RunInstances'
             Resource:
-              - 'arn:aws:ec2:*:*:subnet/*'
-              - 'arn:aws:ec2:*:*:key-pair/*'
-              - 'arn:aws:ec2:*:*:instance/*'
-              - 'arn:aws:ec2:*::snapshot/*'
-              - 'arn:aws:ec2:*:*:launch-template/*'
-              - 'arn:aws:ec2:*:*:volume/*'
-              - 'arn:aws:ec2:*:*:security-group/*'
-              - 'arn:aws:ec2:*:*:placement-group/*'
-              - 'arn:aws:ec2:*:*:network-interface/*'
-              - 'arn:aws:ec2:*::image/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:subnet/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:key-pair/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:instance/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*::snapshot/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:launch-template/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:volume/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:security-group/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:placement-group/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*:*:network-interface/*'
+              - !Sub 'arn:${AWS::Partition}:ec2:*::image/*'
           - Sid: VisualEditor5
             Effect: Allow
             Action:
@@ -456,8 +474,8 @@ Resources:
               - 'logs:Create*'
               - 'logs:PutLogEvents'
             Resource:
-              - 'arn:aws:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
-              - 'arn:aws:logs:*:*:*'
+              - !Sub 'arn:${AWS::Partition}:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
+              - !Sub 'arn:${AWS::Partition}:logs:*:*:*'
       Roles:
         - !Ref MigrateRole
   MigrateRole:
@@ -469,13 +487,13 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - ec2.amazonaws.com
+                - !Sub 'ec2.${AWS::URLSuffix}'
             Action:
               - 'sts:AssumeRole'
       Path: /
       ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM'
-        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonEC2RoleforSSM'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/CloudWatchAgentServerPolicy'
   MigrateInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
@@ -695,43 +713,69 @@ Resources:
             'C:\cfn\scripts\Unzip-Archive.ps1':
               source: !Sub
                 - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Unzip-Archive.ps1
+                  https://${QSS3BucketName}.${QSS3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Unzip-Archive.ps1
                 - QSS3Region: !If
                     - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
+                    - !Sub s3-${AWS::Region}
+                    - !If
+                      - ChinaCloudCondition
+                      - !Sub s3.${AWS::Region}
+                      - s3
             'C:\cfn\modules\AWSQuickStart.zip':
               source: !Sub
                 - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/modules/AWSQuickStart.zip
+                  https://${QSS3BucketName}.${QSS3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/modules/AWSQuickStart.zip
                 - QSS3Region: !If
                     - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
+                    - !Sub s3-${AWS::Region}
+                    - !If
+                      - ChinaCloudCondition
+                      - !Sub s3.${AWS::Region}
+                      - s3
             'C:\cfn\scripts\Rename-Computer.ps1':
               source: !Sub
                 - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Rename-Computer.ps1
+                  https://${QSS3BucketName}.${QSS3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}submodules/quickstart-microsoft-utilities/scripts/Rename-Computer.ps1
                 - QSS3Region: !If
                     - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
+                    - !Sub s3-${AWS::Region}
+                    - !If
+                      - ChinaCloudCondition
+                      - !Sub s3.${AWS::Region}
+                      - s3
             'C:\cfn\scripts\Create-MigrateAdmin.ps1':
               source: !Sub
                 - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}scripts/Create-MigrateAdmin.ps1
+                  https://${QSS3BucketName}.${QSS3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/Create-MigrateAdmin.ps1
                 - QSS3Region: !If
                     - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
+                    - !Sub s3-${AWS::Region}
+                    - !If
+                      - ChinaCloudCondition
+                      - !Sub s3.${AWS::Region}
+                      - s3
             'C:\cfn\scripts\Provision.ps1':
               source: !Sub
                 - >-
-                  https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}scripts/Provision.ps1
+                  https://${QSS3BucketName}.${QSS3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/Provision.ps1
                 - QSS3Region: !If
                     - GovCloudCondition
-                    - s3-us-gov-west-1
-                    - s3
+                    - !Sub s3-${AWS::Region}
+                    - !If
+                      - ChinaCloudCondition
+                      - !Sub s3.${AWS::Region}
+                      - s3
+            'C:\cfn\scripts\CreateAndAddSignedCertificate.ps1':
+              source: !Sub
+                - >-
+                  https://${QSS3BucketName}.${QSS3Region}.${AWS::URLSuffix}/${QSS3KeyPrefix}scripts/CreateAndAddSignedCertificate.ps1
+                - QSS3Region: !If
+                    - GovCloudCondition
+                    - !Sub s3-${AWS::Region}
+                    - !If
+                      - ChinaCloudCondition
+                      - !Sub s3.${AWS::Region}
+                      - s3
             'C:\cfn\cfn-hup.conf':
               content: !Sub |
                 [main]
@@ -800,6 +844,15 @@ Resources:
                   - '-UsePublicIP'
                   - ''
               waitAfterCompletion: 0
+            4-create-server-certificate: 
+              command: !Sub
+                - powershell.exe
+                  -Command C:\cfn\scripts\CreateAndAddSignedCertificate.ps1 ${UsePublicIPFlag}
+                - UsePublicIPFlag: !If
+                  - AutoAssignEIP
+                  - '-UsePublicIP'
+                  - ''
+              waitAfterCompletion: 0
         finalize:
           commands:
             1-signal-success:
@@ -835,9 +888,17 @@ Resources:
         - Key: Name
           Value: !Sub ${AWS::StackName}-${MigrateServerHostname}
       UserData:
-        Fn::Base64:
-          !Sub |
+        Fn::Base64: !Sub
+          - |
             <script>
+              ${UserData}
+              rem Run  cfn-init helper to process AWS::CloudFormation::Init directives
+              cfn-init.exe -v -c config -s ${AWS::StackName} --resource MigrateServerInstance --region ${AWS::Region}
+            </script>
+          - UserData: !If
+            - ChinaCloudCondition
+            - rem Skip updating SSM Agent and AWS CLI
+            - 
               rem Uninstall Amazon SSM Agent and AWS CLI to allow updating
               wmic product where "description='Amazon SSM Agent' " uninstall
               wmic product where "description='aws-cfn-bootstrap' " uninstall
@@ -848,10 +909,6 @@ Resources:
               rem Download and run the latest Amazon SSM Agent setup
               powershell.exe -Command "iwr https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/windows_amd64/AmazonSSMAgentSetup.exe -UseBasicParsing -OutFile C:\AmazonSSMAgentSetup.exe"
               start /wait C:\AmazonSSMAgentSetup.exe /install /quiet
-
-              rem Run  cfn-init helper to process AWS::CloudFormation::Init directives
-              cfn-init.exe -v -c config -s ${AWS::StackName} --resource MigrateServerInstance --region ${AWS::Region}
-            </script>
   MigrateServerLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
@@ -870,7 +927,7 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       Threshold: 0
       AlarmActions:
-        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:recover'
+        - !Sub 'arn:${AWS::Partition}:automate:${AWS::Region}:ec2:recover'
         - !If
           - HaveSNSTopicMailID
           - !Ref AlarmNotificationTopic
