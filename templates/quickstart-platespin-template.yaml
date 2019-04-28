@@ -253,43 +253,43 @@ Conditions:
 Mappings:
   AWSAMIRegionMap:
     AMI:
-      PSM201811AMI: PlateSpin Migrate 2018.11
+      PSMServerImage: PlateSpin Migrate 2019.2
     ap-northeast-1:
-      PSM201811AMI: ami-0e358faef92ee7517
+      PSMServerImage: ami-018dfcf116a6071ef
     ap-northeast-2:
-      PSM201811AMI: ami-0463947f988b9cf5d
+      PSMServerImage: ami-059f88a485b8948b6
     ap-south-1:
-      PSM201811AMI: ami-09bf631174fc30d23
+      PSMServerImage: ami-0eed98c155cb88e51
     ap-southeast-1: 
-      PSM201811AMI: ami-057561c4ea54fdba9
+      PSMServerImage: ami-050f8a5091286079a
     ap-southeast-2:
-      PSM201811AMI: ami-0d98f59b96706839a
+      PSMServerImage: ami-0937a3334a006fe34
     ca-central-1:
-      PSM201811AMI: ami-015487c35b4528a42
+      PSMServerImage: ami-01b36090af693ab07
     eu-central-1:
-      PSM201811AMI: ami-02f448a62a019ad25
+      PSMServerImage: ami-0e7f15aa4b0aa34ae
     eu-north-1:
-      PSM201811AMI: ami-07e6666de23012071
+      PSMServerImage: ami-036144e3b8d03e5ae
     eu-west-1:
-      PSM201811AMI: ami-03e62918d0428ce6e
+      PSMServerImage: ami-06f32baa69d69cdc7
     eu-west-2:
-      PSM201811AMI: ami-099c62b81a00b457a
+      PSMServerImage: ami-01fb38e522ed5ba77
     eu-west-3:
-      PSM201811AMI: ami-0187733190aa6cb8b
+      PSMServerImage: ami-0931961127cd4f799
     sa-east-1:
-      PSM201811AMI: ami-0ac54404a882ffc87
+      PSMServerImage: ami-0083d5b39a22b171b
     us-east-1:
-      PSM201811AMI: ami-00fb6cfd1ac7deeaf
+      PSMServerImage: ami-0856e31b3885c01c4
     us-east-2:
-      PSM201811AMI: ami-0816053aef6a8e339
+      PSMServerImage: ami-05d71d9d7bb96ca30
     us-west-1:
-      PSM201811AMI: ami-095db824055999de8
+      PSMServerImage: ami-0235b86f56954d107
     us-west-2:
-      PSM201811AMI: ami-04a42125a3d85b0d9
+      PSMServerImage: ami-0c90cacd8438a284b
     us-gov-west-1:
-      PSM201811AMI: ami-83186ce2
+      PSMServerImage: ami-31c5b650
     us-gov-east-1:
-      PSM201811AMI: ami-099a2ee71f744fe5a
+      PSMServerImage: ami-0219f63082db00968
 Resources:
   ManagementSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -863,7 +863,7 @@ Resources:
       ImageId: !FindInMap
         - AWSAMIRegionMap
         - !Ref 'AWS::Region'
-        - PSM201811AMI
+        - PSMServerImage
       KeyName: !Ref KeyPairName
       IamInstanceProfile: !Ref MigrateInstanceProfile
       BlockDeviceMappings:
