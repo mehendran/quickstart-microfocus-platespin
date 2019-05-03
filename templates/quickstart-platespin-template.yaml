@@ -290,6 +290,10 @@ Mappings:
       PSMServerImage: ami-31c5b650
     us-gov-east-1:
       PSMServerImage: ami-0219f63082db00968
+    cn-north-1:
+      PSMServerImage: ami-00d39f0b2981be47a
+    cn-northwest-1:
+      PSMServerImage: ami-01429428eff6ef63c
 Resources:
   ManagementSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
