@@ -272,9 +272,13 @@ Conditions:
   AutoAssignEIP: !Equals
     - !Ref AssignElasticIP
     - 'Yes'
-  GovCloudCondition: !Equals
-    - !Ref 'AWS::Region'
-    - us-gov-west-1
+  GovCloudCondition: !Or
+    - !Equals
+      - !Ref 'AWS::Region'
+      - us-gov-west-1
+    - !Equals
+      - !Ref 'AWS::Region'
+      - us-gov-east-1
 Resources:
   VPCStack:
     Type: 'AWS::CloudFormation::Stack'
@@ -284,7 +288,7 @@ Resources:
           https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}submodules/quickstart-aws-vpc/templates/aws-vpc.template
         - QSS3Region: !If
             - GovCloudCondition
-            - s3-us-gov-west-1
+            - !Sub s3-${AWS::Region}
             - s3
       Parameters:
         AvailabilityZones: !Join
@@ -306,7 +310,7 @@ Resources:
           https://${QSS3BucketName}.${QSS3Region}.amazonaws.com/${QSS3KeyPrefix}templates/quickstart-platespin-template.yaml
         - QSS3Region: !If
             - GovCloudCondition
-            - s3-us-gov-west-1
+            - !Sub s3-${AWS::Region}
             - s3
       Parameters:
         AssignElasticIP: !Ref AssignElasticIP
