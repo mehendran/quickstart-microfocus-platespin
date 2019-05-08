@@ -30,18 +30,20 @@ try {
     $CertStore.add($rootCA)
     $CertStore.close()
 
+    Export-Certificate -Cert $rootCA -FilePath c:\cfn\PlateSpinCA.cer
 
+    $dns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1]
+    $ip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
     if ($UsePublicIP) {
-        $dns = @(((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-hostname -UseBasicParsing).RawContent -split "`n")[-1],((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1])
-        $ip = @(((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-ipv4 -UseBasicParsing).RawContent -split "`n")[-1],((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1])
+        $publicdns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-hostname -UseBasicParsing).RawContent -split "`n")[-1]
+        $publicip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
+        $textExten = @("2.5.29.17={text}IpAddress = $ip&IpAddress = $publicip&IpAddress = '127.0.0.1'&IpAddress = '::1'&DNS = $dns&DNS = $publicdns&DNS = 'localhost'")
     } else {
-        $dns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1]
-        $ip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
-    }
-
+        $textExten = @("2.5.29.17={text}IpAddress = $ip&IpAddress = '127.0.0.1'&IpAddress = '::1'&DNS = $dns&DNS = 'localhost'")
+    }    
     $params = @{
       Subject = "CN=PlateSpin Migrate, C=US, ST=Utah, L=Provo, O=PlateSpin"
-      TextExtension = @("2.5.29.17={text}IpAddress = $ip&IpAddress = '127.0.0.1'&IpAddress = '::1'&DNS = $dns&DNS = 'localhost'")
+      TextExtension = $textExten
       Signer = $rootCA 
       KeyLength = 2048
       KeyAlgorithm = 'RSA'
