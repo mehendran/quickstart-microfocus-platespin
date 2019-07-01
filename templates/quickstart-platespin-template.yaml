@@ -285,7 +285,7 @@ Mappings:
     us-west-1:
       PSMServerImage: ami-0235b86f56954d107
     us-west-2:
-      PSMServerImage: ami-0c90cacd8438a284b
+      PSMServerImage: ami-0ba5c9bdac8d42f34
     us-gov-west-1:
       PSMServerImage: ami-31c5b650
     us-gov-east-1:
