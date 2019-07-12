@@ -25,5 +25,3 @@ tests:
   platespin-master:
     parameter_input: master-parameters.json
     template_file: quickstart-platespin-master-template.yaml
-    regions:
-      - ap-southeast-1
