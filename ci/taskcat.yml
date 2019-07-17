@@ -27,4 +27,7 @@ tests:
   platespin-master:
     parameter_input: master-parameters.json
     template_file: quickstart-platespin-master-template.yaml
+<<<<<<< HEAD
     
+=======
+>>>>>>> b05d81bf4d8c3b245a790b931500443d197bddc3
