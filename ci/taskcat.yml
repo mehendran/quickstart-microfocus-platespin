@@ -19,11 +19,12 @@ global:
     - us-east-2       # US East (Ohio)
     - us-west-1       # US West (N. California)
     - us-west-2       # US West (Oregon)
+    
+   
   reporting: true
 
 tests:
   platespin-master:
     parameter_input: master-parameters.json
     template_file: quickstart-platespin-master-template.yaml
-    regions:
-      - ap-southeast-1
+    
