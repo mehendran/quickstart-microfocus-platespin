@@ -1,0 +1,16 @@
+global:
+  marketplace-ami: false
+  owner: Mehendran.Thangavel@microfocus.com
+  qsname: quickstart-microfocus-platespin
+  regions:
+   - cn-northwest-1  #China (Ningxia)
+   - cn-north-1      #China (Beijing)
+    
+   
+  reporting: true
+
+tests:
+  platespin-master:
+    parameter_input: master-parameters.json
+    template_file: quickstart-platespin-master-template.yaml
+    
