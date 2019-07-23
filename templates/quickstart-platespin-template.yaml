@@ -255,45 +255,45 @@ Mappings:
     AMI:
       PSMServerImage: PlateSpin Migrate 2019.5
     ap-northeast-1:
-      PSMServerImage: ami-0aa52cb123e1bca81
+      PSMServerImage: ami-0a6c13be0ed411724
     ap-northeast-2:
-      PSMServerImage: ami-0c49e2fd54b2480ee
+      PSMServerImage: ami-031bfe9ca86ec6b7b
     ap-south-1:
-      PSMServerImage: ami-027b4fb0d083b44bb
+      PSMServerImage: ami-01ac8c4ecd18b3c6e
     ap-southeast-1: 
-      PSMServerImage: ami-0ee51e23258fb90b1
+      PSMServerImage: ami-0f4f16f030819cac8
     ap-southeast-2:
-      PSMServerImage: ami-07e5a469483d72ee9
+      PSMServerImage: ami-07e8d9c78ee815039
     ca-central-1:
-      PSMServerImage: ami-02c1e870657622cd5
+      PSMServerImage: ami-036f15a5f11131dfd
     eu-central-1:
-      PSMServerImage: ami-086219a23eac620fa
+      PSMServerImage: ami-0abb0d9acce8ebba2
     eu-north-1:
-      PSMServerImage: ami-02f8181e3a4e72ece
+      PSMServerImage: ami-0991fe79f4106faed
     eu-west-1:
-      PSMServerImage: ami-0a247c85d3e9fd47d
+      PSMServerImage: ami-0973084bc519d64c1
     eu-west-2:
-      PSMServerImage: ami-025ada952c5283bf8
+      PSMServerImage: ami-0b5825f31587e7866
     eu-west-3:
-      PSMServerImage: ami-0c2681d49db2e3467
+      PSMServerImage: ami-09f3d56b6b0a55040
     sa-east-1:
-      PSMServerImage: ami-0430573ffeafc8d28
+      PSMServerImage: ami-004dd04f422cb0231
     us-east-1:
-      PSMServerImage: ami-01e50793c63c58e50
+      PSMServerImage: ami-07120daa52eee54c0
     us-east-2:
-      PSMServerImage: ami-01625ad08768b9a49
+      PSMServerImage: ami-0124f9ebc33513de1
     us-west-1:
-      PSMServerImage: ami-0883ca70a27807a40
+      PSMServerImage: ami-0beaf672676399ecf
     us-west-2:
-      PSMServerImage: ami-0039ee6fb89aae9fb
+      PSMServerImage: ami-0dcd212dd360c08f0
     us-gov-west-1:
-      PSMServerImage: ami-a17e3ac0
+      PSMServerImage: ami-a02263c1
     us-gov-east-1:
-      PSMServerImage: ami-0ac4663ae5ba84ef2
+      PSMServerImage: ami-05af2f8231526ee53
     cn-north-1:
-      PSMServerImage: ami-0c13177f822a092cf
+      PSMServerImage: ami-0e19e7dcdfbf73194
     cn-northwest-1:
-      PSMServerImage: ami-0f15a4bf16e60c77e
+      PSMServerImage: ami-0d36e2f28903897fc
 Resources:
   ManagementSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
