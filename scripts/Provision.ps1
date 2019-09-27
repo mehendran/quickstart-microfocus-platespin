@@ -34,10 +34,10 @@ try {
     Start-Service PlateSpin_Management_Service -ErrorAction SilentlyContinue
     Start-Service OfxController -ErrorAction SilentlyContinue
 
-    C:\Windows\OEM\ForgeApplianceConfigurator\ForgeApplianceConfigurator.exe /skip_network_config /cloud_config_only /hosting_cloud="aws" /alternate_address=$publicIp /log=$LogFile
+    C:\Windows\PlateSpin\ForgeApplianceConfigurator\ForgeApplianceConfigurator.exe /skip_network_config /cloud_config_only /hosting_cloud="aws" /alternate_address=$publicIp /log=$LogFile
 
     if (-not $LeaveResources) {
-        Remove-Item -Path "C:\Windows\OEM" -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path "C:\Windows\PlateSpin" -Force -Recurse -ErrorAction SilentlyContinue
     }
 }
 catch {
