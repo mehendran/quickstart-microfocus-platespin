@@ -41,6 +41,7 @@ Metadata:
       - Label:
           default: PlateSpin Migrate server configuration
         Parameters:
+          - MigrateServerVersion
           - KeyPairName
           - MigrateServerInstanceType
           - AssignElasticIP
@@ -58,6 +59,8 @@ Metadata:
           - QSS3BucketName
           - QSS3KeyPrefix
     ParameterLabels:
+      MigrateServerVersion:
+        default: PlateSpin Migrate Version
       AssignElasticIP:
         default: Assign persistent public IP address
       AvailabilityZones:
@@ -99,6 +102,14 @@ Metadata:
       VPCCIDR:
         default: VPC CIDR
 Parameters:
+  MigrateServerVersion:
+    Description: >-
+      The version of PlateSpin Migrate, which will be installed on this instance.
+    Type: String
+    AllowedValues:
+      - '2019.8'
+      - '2019.11'
+    Default: '2019.11'
   AssignElasticIP:
     Description: >-
       Choose 'No' to prevent accessing the PlateSpin Migrate server directly from the Internet.
@@ -313,6 +324,7 @@ Resources:
             - !Sub s3-${AWS::Region}
             - s3
       Parameters:
+        MigrateServerVersion: !Ref MigrateServerVersion
         AssignElasticIP: !Ref AssignElasticIP
         KeyPairName: !Ref KeyPairName
         LicenseAgreement: !Ref LicenseAgreement
