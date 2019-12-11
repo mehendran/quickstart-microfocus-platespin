@@ -60,7 +60,7 @@ Metadata:
           - QSS3KeyPrefix
     ParameterLabels:
       MigrateServerVersion:
-        default: PlateSpin Migrate Version
+        default: Migrate server version
       AssignElasticIP:
         default: Assign persistent public IP address
       AvailabilityZones:
@@ -104,7 +104,7 @@ Metadata:
 Parameters:
   MigrateServerVersion:
     Description: >-
-      The version of PlateSpin Migrate, which will be installed on this instance.
+      The version of PlateSpin Migrate server to be provisioned.
     Type: String
     AllowedValues:
       - '2019.8'
