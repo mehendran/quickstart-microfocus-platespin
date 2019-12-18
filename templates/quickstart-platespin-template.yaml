@@ -38,6 +38,7 @@ Metadata:
       - Label:
           default: PlateSpin Migrate server configuration
         Parameters:
+          - MigrateServerVersion
           - KeyPairName
           - MigrateServerInstanceType
           - AssignElasticIP
@@ -55,6 +56,8 @@ Metadata:
           - QSS3BucketName
           - QSS3KeyPrefix
     ParameterLabels:
+      MigrateServerVersion:
+        default: Migrate server version
       AssignElasticIP:
         default: Assign persistent public IP address
       KeyPairName:
@@ -88,6 +91,14 @@ Metadata:
       VPCID:
         default: VPC ID
 Parameters:
+  MigrateServerVersion:
+    Description: >-
+      The version of PlateSpin Migrate server to be provisioned.
+    Type: String
+    AllowedValues:
+      - '2019.8'
+      - '2019.11'
+    Default: '2019.11'
   AssignElasticIP:
     Description: >-
       Choose 'No' to prevent accessing the PlateSpin Migrate server directly from the Internet.
@@ -251,49 +262,75 @@ Conditions:
       - !Ref SNSTopicMailID
       - 'None'
 Mappings:
+  AWSPSMVersionMap:
+    "2019.8":
+      Ver: PSMServerImagePreviousVersion
+    "2019.11":
+      Ver: PSMServerImageCurrentVersion
   AWSAMIRegionMap:
     AMI:
-      PSMServerImage: PlateSpin Migrate 2019.8
+      PSMServerImagePreviousVersion: PlateSpin Migrate 2019.8
+      PSMServerImageCurrentVersion: PlateSpin Migrate 2019.11
     ap-northeast-1:
-      PSMServerImage: ami-01aafdd67d079599d
+      PSMServerImagePreviousVersion: ami-01aafdd67d079599d
+      PSMServerImageCurrentVersion: ami-06ee13daaf0dfed4e
     ap-northeast-2:
-      PSMServerImage: ami-00ba99ccb207cb8e6
+      PSMServerImagePreviousVersion: ami-00ba99ccb207cb8e6
+      PSMServerImageCurrentVersion: ami-03a9ff9d67ea7f02d
     ap-south-1:
-      PSMServerImage: ami-0509c8b2ab1bf3314
+      PSMServerImagePreviousVersion: ami-0509c8b2ab1bf3314
+      PSMServerImageCurrentVersion: ami-08a9d8d188bc35f8f
     ap-southeast-1: 
-      PSMServerImage: ami-03512ec59880593e4
+      PSMServerImagePreviousVersion: ami-03512ec59880593e4
+      PSMServerImageCurrentVersion: ami-01dcadf6870654f01
     ap-southeast-2:
-      PSMServerImage: ami-06317b4838d10bcbd
+      PSMServerImagePreviousVersion: ami-06317b4838d10bcbd
+      PSMServerImageCurrentVersion: ami-0ad33129e16785b3f
     ca-central-1:
-      PSMServerImage: ami-05d5d68a5a2647860
+      PSMServerImagePreviousVersion: ami-05d5d68a5a2647860
+      PSMServerImageCurrentVersion: ami-04ee7c2119d4a2b9f
     eu-central-1:
-      PSMServerImage: ami-03930c7a2cf398758
+      PSMServerImagePreviousVersion: ami-03930c7a2cf398758
+      PSMServerImageCurrentVersion: ami-0b94388a9f0840677
     eu-north-1:
-      PSMServerImage: ami-08f92d7548e9f05fb
+      PSMServerImagePreviousVersion: ami-08f92d7548e9f05fb
+      PSMServerImageCurrentVersion: ami-017bd54d500e25901
     eu-west-1:
-      PSMServerImage: ami-0df08bd730945abea
+      PSMServerImagePreviousVersion: ami-0df08bd730945abea
+      PSMServerImageCurrentVersion: ami-08ebfbb85c75b595d
     eu-west-2:
-      PSMServerImage: ami-0f43ca5ecb168240f
+      PSMServerImagePreviousVersion: ami-0f43ca5ecb168240f
+      PSMServerImageCurrentVersion: ami-0915bc7eb35f34e89
     eu-west-3:
-      PSMServerImage: ami-0cff27321bead20a8
+      PSMServerImagePreviousVersion: ami-0cff27321bead20a8
+      PSMServerImageCurrentVersion: ami-058b20a03790b7af0
     sa-east-1:
-      PSMServerImage: ami-07d05a3c38afb7a51
+      PSMServerImagePreviousVersion: ami-07d05a3c38afb7a51
+      PSMServerImageCurrentVersion: ami-02af63f8d791474ae
     us-east-1:
-      PSMServerImage: ami-07fdf9ea5e20aaba1
+      PSMServerImagePreviousVersion: ami-07fdf9ea5e20aaba1
+      PSMServerImageCurrentVersion: ami-041fd06e30abf8b4e
     us-east-2:
-      PSMServerImage: ami-0f156546e0a7b8efc
+      PSMServerImagePreviousVersion: ami-0f156546e0a7b8efc
+      PSMServerImageCurrentVersion: ami-08cfb0daf015a5dcf
     us-west-1:
-      PSMServerImage: ami-099b5e0cc8108f813
+      PSMServerImagePreviousVersion: ami-099b5e0cc8108f813
+      PSMServerImageCurrentVersion: ami-0016f46b758fcbc81
     us-west-2:
-      PSMServerImage: ami-0d6967caa3723d667
+      PSMServerImagePreviousVersion: ami-0d6967caa3723d667
+      PSMServerImageCurrentVersion: ami-0380fbc01a739f984
     us-gov-west-1:
-      PSMServerImage: ami-50ca8031
+      PSMServerImagePreviousVersion: ami-50ca8031
+      PSMServerImageCurrentVersion: ami-9a055dfb
     us-gov-east-1:
-      PSMServerImage: ami-0e7d7d08ea5f66891
+      PSMServerImagePreviousVersion: ami-0e7d7d08ea5f66891
+      PSMServerImageCurrentVersion: ami-01410228efeacb0af
     cn-north-1:
-      PSMServerImage: ami-08e96d1b5336d3169
+      PSMServerImagePreviousVersion: ami-096df25e9568003d3
+      PSMServerImageCurrentVersion: ami-0651c5a005220ec0a
     cn-northwest-1:
-      PSMServerImage: ami-0ff8528c07ef2ba78
+      PSMServerImagePreviousVersion: ami-0ff8528c07ef2ba78
+      PSMServerImageCurrentVersion: ami-02886319a1c7e5376
 Resources:
   ManagementSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -867,7 +904,10 @@ Resources:
       ImageId: !FindInMap
         - AWSAMIRegionMap
         - !Ref 'AWS::Region'
-        - PSMServerImage
+        - !FindInMap
+          - AWSPSMVersionMap
+          - !Ref MigrateServerVersion
+          - Ver
       KeyName: !Ref KeyPairName
       IamInstanceProfile: !Ref MigrateInstanceProfile
       BlockDeviceMappings:
