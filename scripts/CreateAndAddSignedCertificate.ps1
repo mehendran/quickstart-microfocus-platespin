@@ -32,11 +32,14 @@ try {
 
     Export-Certificate -Cert $rootCA -FilePath c:\cfn\PlateSpinCA.cer
 
-    $dns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1]
-    $ip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
+    $tokenuri = "http://169.254.169.254/latest/api/token"
+    $token = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"="600"} -URI $tokenuri -Method put
+
+    $dns = ((Invoke-WebRequest -Headers @{"X-aws-ec2-metadata-token"=$token} -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1]
+    $ip = ((Invoke-WebRequest -Headers @{"X-aws-ec2-metadata-token"=$token} -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
     if ($UsePublicIP) {
-        $publicdns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-hostname -UseBasicParsing).RawContent -split "`n")[-1]
-        $publicip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
+        $publicdns = ((Invoke-WebRequest -Headers @{"X-aws-ec2-metadata-token"=$token} -Uri http://169.254.169.254/latest/meta-data/public-hostname -UseBasicParsing).RawContent -split "`n")[-1]
+        $publicip = ((Invoke-WebRequest -Headers @{"X-aws-ec2-metadata-token"=$token} -Uri http://169.254.169.254/latest/meta-data/public-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
         $textExten = @("2.5.29.17={text}IpAddress = $ip&IpAddress = $publicip&IpAddress = '127.0.0.1'&IpAddress = '::1'&DNS = $dns&DNS = $publicdns&DNS = 'localhost'")
     } else {
         $textExten = @("2.5.29.17={text}IpAddress = $ip&IpAddress = '127.0.0.1'&IpAddress = '::1'&DNS = $dns&DNS = 'localhost'")
