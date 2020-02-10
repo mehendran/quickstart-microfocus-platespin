@@ -32,8 +32,9 @@ try {
 
     Export-Certificate -Cert $rootCA -FilePath c:\cfn\PlateSpinCA.cer
 
+    Set-Variable -Name "timetolive" -Value 600 -Option constant 
     $tokenuri = "http://169.254.169.254/latest/api/token"
-    $token = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"="600"} -URI $tokenuri -Method put
+    $token = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"=$timetolive} -URI $tokenuri -Method put
 
     $dns = ((Invoke-WebRequest -Headers @{"X-aws-ec2-metadata-token"=$token} -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1]
     $ip = ((Invoke-WebRequest -Headers @{"X-aws-ec2-metadata-token"=$token} -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]

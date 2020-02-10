@@ -16,8 +16,9 @@ try {
 
     $publicIp = ""
     if ($UsePublicIP) {
+        Set-Variable -Name "timetolive" -Value 600 -Option constant 
         $tokenuri = "http://169.254.169.254/latest/api/token"
-        $token = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"="600"} -URI $tokenuri -Method put
+        $token = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds"=$timetolive} -URI $tokenuri -Method put
         $uri = "http://169.254.169.254/latest/meta-data/public-ipv4"
         $publicIp = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token"=$token} -URI $uri -Method get
         if (!$publicIp) {
