@@ -8,7 +8,6 @@ param(
 )
 
 try {
-
     $ErrorActionPreference = "Stop"
     Start-Transcript -Path C:\cfn\log\$($MyInvocation.MyCommand.Name).log -Append
 
