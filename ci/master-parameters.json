@@ -13,7 +13,7 @@
     },
     {
         "ParameterKey": "KeyPairName",
-        "ParameterValue": "cikey"
+        "ParameterValue": "$[taskcat_getkeypair]"
     },
     {
         "ParameterKey": "LicenseAgreement",

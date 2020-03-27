@@ -1,0 +1,680 @@
+﻿[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$false)]
+    [switch]$UsePublicIP
+)
+try {
+
+    #Create a new (random) serial number, suitable for use with an X.509 certificate.
+    function New-SerialNumber
+    {
+    param(
+        # Allows you to specify the random number generator to be used. If not specified, a new one is created.
+        [Parameter(Mandatory = $false)]
+        [Org.BouncyCastle.Security.SecureRandom] $Random = (New-SecureRandom)
+    )
+
+        $serialNumber =
+            [Org.BouncyCastle.Utilities.BigIntegers]::CreateRandomInRange(
+                [Org.BouncyCastle.Math.BigInteger]::One,
+                [Org.BouncyCastle.Math.BigInteger]::ValueOf([Int64]::MaxValue),
+                $random)
+
+        return $serialNumber
+    }
+
+    function New-CertificateGenerator
+    {
+        $certificateGenerator = New-Object Org.BouncyCastle.X509.X509V3CertificateGenerator
+        return $certificateGenerator
+    }
+
+    function New-SecureRandom
+    {
+        $randomGenerator = New-Object Org.BouncyCastle.Crypto.Prng.CryptoApiRandomGenerator
+        $random = New-Object Org.BouncyCastle.Security.SecureRandom($randomGenerator)
+
+        return $random
+    }
+
+    #Generate an RSA key pair suitable for use with an X.509 certificate.
+    function New-KeyPair
+    {
+    param(
+        # Allows you to specify the random number generator to be used. If not specified, a new one is created.
+        [Parameter(Mandatory = $false)]
+        [Org.BouncyCastle.Security.SecureRandom] $Random = (New-SecureRandom),
+
+        # The strength (in bits) of the RSA key generated. Defaults to 2048 bits.
+        [Parameter(Mandatory = $false)]
+        [int] $Strength = 2048
+    )
+
+        $keyGenerationParameters = New-Object Org.BouncyCastle.Crypto.KeyGenerationParameters($Random, $Strength)
+
+        $keyPairGenerator = New-Object Org.BouncyCastle.Crypto.Generators.RsaKeyPairGenerator
+        $keyPairGenerator.Init($keyGenerationParameters)
+        $keyPair = $keyPairGenerator.GenerateKeyPair()
+
+        return $keyPair
+    }
+
+    function Get-RandomPassword
+    { 
+        $Password =  ("!@#$%^&*0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz".tochararray() | sort {Get-Random})[0..8] -join ''
+        return $Password
+    }
+
+    function ConvertFrom-BouncyCastleCertificate
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.X509.X509Certificate] $certificate,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Crypto.AsymmetricCipherKeyPair] $subjectKeyPair,
+
+        [Parameter(Mandatory = $true)]
+        [string] $friendlyName,
+
+        # Allows you to specify the random number generator to be used. If not specified, a new one is created.
+        [Parameter(Mandatory = $false)]
+        [Org.BouncyCastle.Security.SecureRandom] $random = (New-SecureRandom)
+    )
+
+        $store = New-Object Org.BouncyCastle.Pkcs.Pkcs12Store
+
+        $certificateEntry = New-Object Org.BouncyCastle.Pkcs.X509CertificateEntry($certificate)
+        $store.SetCertificateEntry($friendlyName, $certificateEntry)
+
+        $keyEntry = New-Object Org.BouncyCastle.Pkcs.AsymmetricKeyEntry($subjectKeyPair.Private)
+        $store.SetKeyEntry($friendlyName, $keyEntry, @($certificateEntry))
+
+        # The password is re-used immediately, so it doesn't matter what it is.
+        $password = Get-RandomPassword
+       
+        $stream = New-Object System.IO.MemoryStream
+        $store.Save($stream, $password, $random)
+
+        $keyStorageFlags = 'PersistKeySet, Exportable'
+        $result =
+            New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+                $stream.ToArray(), $password, $keyStorageFlags)
+
+        $stream.Dispose()
+
+        return $result
+    }
+
+    function ConvertTo-BouncyCastleKeyPair
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Security.Cryptography.AsymmetricAlgorithm] $PrivateKey
+    )
+
+        return [Org.BouncyCastle.Security.DotNetUtilities]::GetKeyPair($PrivateKey)
+    }
+
+    function New-AuthorityKeyIdentifier
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $name,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Crypto.Parameters.RsaKeyParameters] $publicKey,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Math.BigInteger] $serialNumber
+    )
+
+        $publicKeyInfo =
+            [Org.BouncyCastle.X509.SubjectPublicKeyInfoFactory]::CreateSubjectPublicKeyInfo($publicKey)
+
+        $generalName = New-Object Org.BouncyCastle.Asn1.X509.GeneralName($name)
+        $generalNames = New-Object Org.BouncyCastle.Asn1.X509.GeneralNames($generalName)
+
+        $authorityKeyIdentifier =
+            New-Object Org.BouncyCastle.Asn1.X509.AuthorityKeyIdentifier(
+                $publicKeyInfo, $generalNames, $serialNumber)
+
+        return $authorityKeyIdentifier
+    }
+
+    function Add-AuthorityKeyIdentifier
+    {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Org.BouncyCastle.X509.X509V3CertificateGenerator] $certificateGenerator,
+
+        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $false)]
+        [Org.BouncyCastle.Asn1.X509.AuthorityKeyIdentifier] $authorityKeyIdentifier
+    )
+
+        $certificateGenerator.AddExtension(
+            [Org.BouncyCastle.Asn1.X509.X509Extensions]::AuthorityKeyIdentifier.Id,
+            $false,
+            $authorityKeyIdentifier)
+
+        return $certificateGenerator
+    }
+
+    function New-SubjectKeyIdentifier
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Crypto.Parameters.RsaKeyParameters] $publicKey
+    )
+
+        $publicKeyInfo =
+            [Org.BouncyCastle.X509.SubjectPublicKeyInfoFactory]::CreateSubjectPublicKeyInfo($publicKey)
+
+        $subjectKeyIdentifier =
+            New-Object Org.BouncyCastle.Asn1.X509.SubjectKeyIdentifier($publicKeyInfo)
+
+        return $subjectKeyIdentifier
+    }
+
+    function Add-SubjectKeyIdentifier
+    {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Org.BouncyCastle.X509.X509V3CertificateGenerator] $certificateGenerator,
+
+        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $false)]
+        [Org.BouncyCastle.Asn1.X509.SubjectKeyIdentifier] $subjectKeyIdentifier
+    )
+
+        $certificateGenerator.AddExtension(
+            [Org.BouncyCastle.Asn1.X509.X509Extensions]::SubjectKeyIdentifier.Id,
+            $false,
+            $subjectKeyIdentifier)
+
+        return $certificateGenerator
+    }
+
+    function Add-BasicConstraints
+    {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Org.BouncyCastle.X509.X509V3CertificateGenerator] $certificateGenerator,
+
+        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $false)]
+        [bool] $isCertificateAuthority
+    )
+
+        $basicConstraints =
+            New-Object Org.BouncyCastle.Asn1.X509.BasicConstraints($isCertificateAuthority)
+        $certificateGenerator.AddExtension(
+            [Org.BouncyCastle.Asn1.X509.X509Extensions]::BasicConstraints.Id,
+            $isCertificateAuthority,
+            $basicConstraints)
+
+        return $certificateGenerator
+    }
+
+    function Add-SubjectAlternativeName
+    {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Org.BouncyCastle.X509.X509V3CertificateGenerator] $CertificateGenerator,
+
+        [Parameter(Mandatory = $true)]
+        [string[]] $DnsName,
+        
+        [Parameter(Mandatory = $false)]
+        [string[]] $IpAddress
+    )
+
+        $names = $DnsName |
+            foreach {
+                New-Object Org.BouncyCastle.Asn1.X509.GeneralName(
+                    [Org.BouncyCastle.Asn1.X509.GeneralName]::DnsName, $_)
+                }
+
+        $namesIp = $IpAddress |
+            foreach {
+                New-Object Org.BouncyCastle.Asn1.X509.GeneralName(
+                    [Org.BouncyCastle.Asn1.X509.GeneralName]::IPAddress, $_)
+                }
+
+        $extension = New-Object Org.BouncyCastle.Asn1.DerSequence($names, $namesIp)
+
+        $CertificateGenerator.AddExtension(
+            [Org.BouncyCastle.Asn1.X509.X509Extensions]::SubjectAlternativeName.Id,
+            $false,
+            $extension)
+
+        return $CertificateGenerator
+    }
+
+    function Add-KeyUsage
+    {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Org.BouncyCastle.X509.X509V3CertificateGenerator] $certificateGenerator,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $DigitalSignature,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $NonRepudiation,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $KeyEncipherment,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $DataEncipherment,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $KeyAgreement,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $KeyCertSign,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $CrlSign,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $EncipherOnly,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
+        [switch] $DecipherOnly
+    )
+
+        $usages = 0
+        if ($DigitalSignature) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::DigitalSignature }
+        if ($NonRepudiation) {  $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::NonRepudiation }
+        if ($KeyEncipherment) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::KeyEncipherment }
+        if ($DataEncipherment) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::DataEncipherment }
+        if ($KeyAgreement) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::KeyAgreement }
+        if ($KeyCertSign) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::KeyCertSign }
+        if ($CrlSign) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::CrlSign }
+        if ($EncipherOnly) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::EncipherOnly }
+        if ($DecipherOnly) { $usages = $usages -bor [Org.BouncyCastle.Asn1.X509.KeyUsage]::DecipherOnly }
+
+        $keyUsage = New-Object Org.BouncyCastle.Asn1.X509.KeyUsage -ArgumentList $usages
+        $certificateGenerator.AddExtension(
+            [Org.BouncyCastle.Asn1.X509.X509Extensions]::KeyUsage.Id,
+            $true,
+            $keyUsage)
+
+        return $certificateGenerator
+    }
+
+    function Add-ExtendedKeyUsage
+    {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Org.BouncyCastle.X509.X509V3CertificateGenerator] $certificateGenerator,
+
+        [Parameter(Mandatory = $true, ValueFromPipeline = $false, ParameterSetName = 'Oid')]
+        [string[]] $Oid = $null,
+
+        [Parameter(Mandatory = $true, ValueFromPipeline = $false, ParameterSetName = 'AnyPurpose')]
+        [switch] $AnyPurpose,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $ServerAuthentication,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $ClientAuthentication,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $CodeSigning,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $EmailProtection,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $IpsecEndSystem,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $IpsecTunnel,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $IpsecUser,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $TimeStamping,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $OcspSigning,
+
+        [Parameter(Mandatory = $false, ValueFromPipeline = $false, ParameterSetName = 'Named')]
+        [switch] $SmartCardLogon
+    )
+
+        $usages = switch ($PSCmdlet.ParameterSetName) {
+            "Oid" {
+                [Org.BouncyCastle.Asn1.Asn1Object[]] $usages = @()
+                $Oid | % { $usages += New-Object Org.BouncyCastle.Asn1.DerObjectIdentifier($_) }
+                $usages
+            }
+
+            "AnyPurpose" {
+                @( [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::AnyExtendedKeyUsage )
+            }
+
+            "Named" {
+                $usages = @()
+                if ($ServerAuthentication) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPServerAuth }
+                if ($ClientAuthentication) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPClientAuth }
+                if ($CodeSigning) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPCodeSigning }
+                if ($EmailProtection) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPEmailProtection }
+                if ($IpsecEndSystem) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPIpsecEndSystem }
+                if ($IpsecTunnel) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPIpsecTunnel }
+                if ($IpsecUser) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPIpsecUser }
+                if ($TimeStamping) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPTimeStamping }
+                if ($OcspSigning) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPOcspSigning }
+                if ($SmartCardLogon) { $usages += [Org.BouncyCastle.Asn1.X509.KeyPurposeID]::IdKPSmartCardLogon }
+                $usages
+            }
+        }
+
+        $extendedKeyUsage = New-Object Org.BouncyCastle.Asn1.X509.ExtendedKeyUsage(,$usages)
+        $certificateGenerator.AddExtension(
+            [Org.BouncyCastle.Asn1.X509.X509Extensions]::ExtendedKeyUsage.Id,
+            $true,
+            $extendedKeyUsage)
+
+        return $certificateGenerator
+    }
+
+    function New-X509Name
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Name
+    )
+
+        New-Object Org.BouncyCastle.Asn1.X509.X509Name($Name)
+    }
+
+    function New-Certificate
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Security.SecureRandom] $Random,
+
+        [Parameter(Mandatory = $true)]
+        [string] $IssuerName,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Crypto.AsymmetricCipherKeyPair] $IssuerKeyPair,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Math.BigInteger] $IssuerSerialNumber,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SubjectName,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Crypto.AsymmetricCipherKeyPair] $SubjectKeyPair,
+
+        [Parameter(Mandatory = $true)]
+        [Org.BouncyCastle.Math.BigInteger] $SubjectSerialNumber,
+
+        [Parameter(Mandatory = $true)]
+        [Alias("IsCertificateAuthority")]
+        [bool] $IsCA,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Dns = $null,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Ip = $null,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Eku = $null,
+    
+        [Parameter(Mandatory = $false)]
+        [string] $FriendlyName = $null
+    )
+
+        $certificateGenerator = New-CertificateGenerator
+
+        $certificateGenerator.SetSerialNumber($SubjectSerialNumber)
+
+        $signatureAlgorithm = "SHA256WithRSA"
+        $certificateGenerator.SetSignatureAlgorithm($signatureAlgorithm)
+
+        $issuerDN = New-X509Name($IssuerName)
+        $certificateGenerator.SetIssuerDN($issuerDN)
+
+        $subjectDN = New-X509Name($SubjectName)
+        $certificateGenerator.SetSubjectDN($subjectDN)
+
+        $notBefore = [DateTime]::UtcNow.Date
+        $notAfter = $notBefore.AddYears(2)
+
+        $certificateGenerator.SetNotBefore($notBefore)
+        $certificateGenerator.SetNotAfter($notAfter)
+
+        $certificateGenerator.SetPublicKey($SubjectKeyPair.Public)
+
+        $certificateGenerator |
+            Add-SubjectKeyIdentifier (New-SubjectKeyIdentifier $SubjectKeyPair.Public) |
+            Add-AuthorityKeyIdentifier (New-AuthorityKeyIdentifier $IssuerName $IssuerKeyPair.Public $IssuerSerialNumber) |
+            Add-BasicConstraints -IsCertificateAuthority $IsCA |
+            Out-Null
+
+        if($IsCA) {
+            $certificateGenerator |
+                Add-KeyUsage -KeyCertSign -CrlSign |
+                Out-Null
+        }
+        else {
+            $certificateGenerator |
+                Add-KeyUsage -DigitalSignature -KeyEncipherment |
+                Add-ExtendedKeyUsage -ServerAuthentication  |    
+                Out-Null
+        } 
+    
+        if($Dns) {
+            $certificateGenerator | 
+                Add-SubjectAlternativeName -DnsName $Dns -IpAddress $Ip |
+                Out-Null
+        }     
+
+        if ($Eku) {
+            $certificateGenerator |
+                Add-ExtendedKeyUsage -Oid $Eku |
+                Out-Null
+        }
+        $certificate = $certificateGenerator.Generate($IssuerKeyPair.Private, $Random)
+
+        if([string]::IsNullOrEmpty($FriendlyName)) {
+            return (ConvertFrom-BouncyCastleCertificate $certificate $SubjectKeyPair $SubjectName)
+        }
+        else {
+            return (ConvertFrom-BouncyCastleCertificate $certificate $SubjectKeyPair $FriendlyName)
+        }
+    }
+
+    function New-CertificateAuthorityCertificate
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Eku = $null
+    )
+
+        $random = New-SecureRandom
+        $serialNumber = New-SerialNumber
+        $keyPair = New-KeyPair
+
+        New-Certificate -Random $random `
+                        -IssuerName $Name -IssuerKeyPair $keyPair -IssuerSerialNumber $serialNumber `
+                        -SubjectName $Name -SubjectKeyPair $keyPair -SubjectSerialNumber $serialNumber `
+                        -IsCertificateAuthority $true `
+                        -Eku $Eku
+    }
+
+    function New-IssuedCertificate
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2] $IssuerCertificate,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Eku = $null,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Dns = $null,
+
+        [Parameter(Mandatory = $false)]
+        [string[]] $Ip = $null,
+    
+        [Parameter(Mandatory = $false)]
+        [string] $FriendlyName = $null
+    )
+
+        $issuerName = $IssuerCertificate.Subject
+        $issuerKeyPair = ConvertTo-BouncyCastleKeyPair $IssuerCertificate.PrivateKey
+        $issuerSerialNumber = New-Object Org.BouncyCastle.Math.BigInteger(,$IssuerCertificate.GetSerialNumber())
+
+        $random = New-SecureRandom
+        $subjectSerialNumber = New-SerialNumber
+        $subjectKeyPair = New-KeyPair
+
+        New-Certificate -Random $random `
+                        -IssuerName $issuerName -IssuerKeyPair $issuerKeyPair -IssuerSerialNumber $issuerSerialNumber `
+                        -SubjectName $Name -SubjectKeyPair $subjectKeyPair -SubjectSerialNumber $subjectSerialNumber `
+                        -IsCertificateAuthority $false `
+                        -Eku $Eku -Dns $Dns -Ip $Ip -FriendlyName $FriendlyName
+    }
+
+    function QualifyPath($Path)
+    {
+        return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    }
+
+    # Split a string into lines of a particular length. Used for .PEM export.
+    function SplitString([string] $String, [int] $Length)
+    {
+        $stringLength = $String.Length
+        for ($i = 0; $i -lt $stringLength; $i += $Length)
+        {
+            if (($i + $Length) -le $stringLength) {
+                Write-Output $String.Substring($i, $Length)
+            } else {
+                Write-Output $String.Substring($i)
+            }
+        }
+    }
+
+    function Export-Certificate
+    {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate,
+
+        [Parameter(Mandatory = $true)]
+        [string] $OutputFile,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('PEM', 'DER')]
+        [string] $OutputFormat = 'DER',
+
+        [ValidateSet("Cert","Pfx")]
+        [string] $X509ContentType = "Cert",
+
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNull()]
+        [securestring] $Password
+    )
+
+        $outputPath = QualifyPath $OutputFile
+
+        if ($X509ContentType -eq 'Pfx' -and $Password -ne $null) {
+            $bytes = $Certificate.Export($X509ContentType, $Password)
+        } else {
+            $bytes = $Certificate.Export($X509ContentType)
+        }
+
+        switch ($OutputFormat)
+        {
+            'DER' { [System.IO.File]::WriteAllBytes($outputPath, $bytes) }
+            'PEM' {
+                $prefix = "-----BEGIN CERTIFICATE-----`r`n"
+                $suffix = "-----END CERTIFICATE-----`r`n"
+
+                $encoded = [Convert]::ToBase64String($bytes)
+                $lines = SplitString -String $encoded -Length 65
+                $content = $prefix
+                $lines | % { $content += $_ + "`r`n" }
+                $content += $suffix
+                [System.IO.File]::WriteAllText($outputPath, $content)
+            }
+        }
+    }
+
+
+    Start-Transcript -Path C:\cfn\log\$($MyInvocation.MyCommand.Name).log -Append
+
+    Unblock-File -Path C:\cfn\downloads\BouncyCastle.Crypto.dll
+    Add-Type -Path C:\cfn\downloads\BouncyCastle.Crypto.dll
+
+    $path = "C:\cfn"
+    $cacertPath = $path + "\PlatespinCA.crt"
+    $servercertPath = $path + "\PlatespinServer.pfx"
+
+    #Generate the CA Root Certificate
+
+    $cacertDN = "C=US, L=Provo, O=Micro Focus Ltd., OU=PlateSpin, CN=PlateSpin CA"
+    $cacert = New-CertificateAuthorityCertificate -Name $cacertDN
+    Export-Certificate -Certificate $cacert -OutputFile $cacertPath -OutputFormat PEM
+
+
+    #Generate the Server Certificate
+
+    $servercertDN = "C=US, ST=Utah, L=Provo, O=PlateSpin, CN=platespin.migrate"
+
+    if ($UsePublicIP) {
+        $dns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-hostname -UseBasicParsing).RawContent -split "`n")[-1]
+        $ip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/public-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
+    } else {
+        $dns = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-hostname -UseBasicParsing).RawContent -split "`n")[-1]
+        $ip = ((Invoke-WebRequest -Uri http://169.254.169.254/latest/meta-data/local-ipv4 -UseBasicParsing).RawContent -split "`n")[-1]
+    }
+            
+    $servercert = New-IssuedCertificate -IssuerCertificate $cacert -Name $servercertDN -Dns $dns -Ip $ip -FriendlyName "Signed by PlateSpin CA"
+    
+    $random = Get-RandomPassword
+    $pass = $random | ConvertTo-SecureString -AsPlainText -Force
+    Export-Certificate -Certificate $servercert -OutputFile $servercertPath -Password $pass -X509ContentType Pfx
+
+
+    #Import certificates to machine store
+
+    Import-Certificate -FilePath $cacertPath  -CertStoreLocation 'Cert:\LocalMachine\Root'
+    Import-PfxCertificate -CertStoreLocation 'Cert:\LocalMachine\WebHosting' -Password $pass -FilePath $servercertPath -Exportable
+
+    Remove-Item –path $servercertPath
+
+
+    #Bind Server certificate to HTTPS
+       
+    (Get-WebBinding -Name "Default Web Site" -Port 443 -Protocol "https").AddSslCertificate($servercert.Thumbprint, "WebHosting")  
+    
+    Start-Process "iisreset.exe" -NoNewWindow -Wait
+
+}
+catch {
+    Write-Verbose "catch: $_"
+    $_ | Write-AWSQuickStartException
+}
+
