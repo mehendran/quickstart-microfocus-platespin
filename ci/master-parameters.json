@@ -1,7 +1,7 @@
 [
     {
         "ParameterKey": "MigrateServerVersion",
-        "ParameterValue": "2019.11"
+        "ParameterValue": "2020.2"
     },
     {
         "ParameterKey": "AssignElasticIP",

@@ -107,9 +107,9 @@ Parameters:
       The version of PlateSpin Migrate server to be provisioned.
     Type: String
     AllowedValues:
-      - '2019.8'
       - '2019.11'
-    Default: '2019.11'
+      - '2020.2'
+    Default: '2020.2'
   AssignElasticIP:
     Description: >-
       Choose 'No' to prevent accessing the PlateSpin Migrate server directly from the Internet.
