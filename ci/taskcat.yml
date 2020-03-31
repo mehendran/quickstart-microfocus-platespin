@@ -22,7 +22,6 @@ global:
     
    
   reporting: true
-  s3bucket: aws-quickstart-migrate
 
 tests:
   platespin-master:
